@@ -55,7 +55,14 @@ module PoiseArchive
       #
       # @return [void]
       def action_unpack
-        converge_by("unpack archive #{new_resource.path} to #{new_resource.absolute_destination}") do
+        if new_resource.is_url?
+          download_resource = download_file
+          # Check if the download resource updated, if not don't run the rest
+          # of the unpack for idempotence. I could also check
+          # new_resource.updated? but this seems more future proof.
+          return if !download_resource.updated_by_last_action?
+        end
+        converge_by("unpack archive #{new_resource.path} to #{new_resource.destination}") do
           notifying_block do
             create_directory
           end
@@ -66,11 +73,31 @@ module PoiseArchive
 
       private
 
+      # Download the source file to a cache path.
+      #
+      # @return [Chef::Resource]
+      def download_file
+        # resource_state used for closure breaking on the notifying block.
+        resource_state = []
+        notifying_block do
+          # TODO handle cookbook:// for cookbook_file "downloads".
+          resource_state << remote_file(new_resource.absolute_path) do
+            source new_resource.path
+            retries 5 # As a default, could be overridden by source_properties.
+            new_resource.merged_source_properties.each do |key, value|
+              send(key, value)
+            end
+          end
+        end
+        # Return the download resource for state tracking.
+        resource_state.first
+      end
+
       # Make sure the destination directory exists.
       #
       # @return [void]
       def create_directory
-        directory new_resource.absolute_destination do
+        directory new_resource.destination do
           group new_resource.group if new_resource.group
           owner new_resource.user if new_resource.user
           # There is explicitly no mode being set here. If a non-default mode
@@ -85,7 +112,7 @@ module PoiseArchive
       def empty_directory
         # If you want to keep it, not my problem.
         return if new_resource.keep_existing
-        dest = new_resource.absolute_destination
+        dest = new_resource.destination
         Dir.entries(dest).each do |entry|
           next if entry == '.' || entry == '..'
           FileUtils.remove_entry_secure(::File.join(dest, entry))

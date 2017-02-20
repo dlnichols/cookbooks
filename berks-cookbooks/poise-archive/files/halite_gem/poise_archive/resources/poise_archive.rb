@@ -14,6 +14,9 @@
 # limitations under the License.
 #
 
+require 'base64'
+require 'uri'
+
 require 'chef/resource'
 require 'poise'
 
@@ -29,6 +32,10 @@ module PoiseArchive
       # @action unpack
       # @example
       #   poise_archive '/opt/myapp.tgz'
+      # @example Downloading from a URL with options
+      #   poise_archive ['http://example.com/myapp.zip', {headers: {'Authentication' => '...'}}] do
+      #     destination '/opt/myapp'
+      #   end
       class Resource < Chef::Resource
         include Poise
         provides(:poise_archive)
@@ -36,14 +43,15 @@ module PoiseArchive
 
         # @!attribute path
         #   Path to the archive. If relative, it is taken as a file inside
-        #   `Chef::Config[:file_cache_path]`.
-        #   @return [String]
-        attribute(:path, kind_of: String, name_attribute: true)
+        #   `Chef::Config[:file_cache_path]`. Can also be a URL to download the
+        #   archive from.
+        #   @return [String, Array]
+        attribute(:path, kind_of: String, default: lazy { @raw_name.is_a?(Array) ? @raw_name[0] : name }, required: true)
         # @!attribute destination
         #   Path to unpack the archive to. If not specified, the path of the
         #   archive without the file extension is used.
         #   @return [String, nil, false]
-        attribute(:destination, kind_of: [String, NilClass, FalseClass])
+        attribute(:destination, kind_of: [String, NilClass, FalseClass], default: lazy { default_destination })
         # @!attribute group
         #   Group to run the unpack as.
         #   @return [String, Integer, nil, false]
@@ -52,6 +60,11 @@ module PoiseArchive
         #   Keep existing files in the destination directory when unpacking.
         #   @return [Boolean]
         attribute(:keep_existing, equal_to: [true, false], default: false)
+        # @!attribute source_properties
+        #   Properties to pass through to the underlying download resource if
+        #   using one. Merged with the array form of {#name}.
+        #   @return [Hash]
+        attribute(:source_properties, option_collector: true, forced_keys: %i{retries})
         # @!attribute strip_components
         #   Number of intermediary directories to skip when unpacking. Works
         #   like GNU tar's --strip-components.
@@ -66,16 +79,67 @@ module PoiseArchive
         # @api private
         alias_method :owner, :user
 
-        def absolute_path
-          ::File.expand_path(path, Chef::Config[:file_cache_path])
+        def initialize(name, run_context)
+          @raw_name = name # Capture this before it gets coerced to a string.
+          super
         end
+
+        # Regexp for URL-like paths.
+        # @api private
+        URL_PATHS = %r{^(\w+:)?//}
+
+        # Check if the source path is a URL.
+        #
+        # @api private
+        # @return [Boolean]
+        def is_url?
+          path =~ URL_PATHS
+        end
+
+        # Expand a relative file path against `Chef::Config[:file_cache_path]`.
+        # For URLs it returns the cache file path.
+        #
+        # @api private
+        # @return [String]
+        def absolute_path
+          if is_url?
+            # Use the last path component without the query string plus the name
+            # of the resource in Base64. This should be both mildly readable and
+            # also unique per invocation.
+            url_part = URI(path).path.split(/\//).last
+            base64_name = Base64.strict_encode64(name).gsub(/\=/, '')
+            ::File.join(Chef::Config[:file_cache_path], "#{base64_name}_#{url_part}")
+          else
+            ::File.expand_path(path, Chef::Config[:file_cache_path])
+          end
+        end
+
+        # Merge the explicit source properties with the array form of the name.
+        #
+        # @api private
+        # @return [Hash]
+        def merged_source_properties
+          if @raw_name.is_a?(Array) && @raw_name[1]
+            source_properties.merge(@raw_name[1])
+          else
+            source_properties
+          end
+        end
+
+        private
 
         # Filename components to ignore.
         # @api private
         BASENAME_IGNORE = /(\.(t?(ar|gz|bz2?|xz)|zip))+$/
 
-        def absolute_destination
-          destination || begin
+        # Default value for the {#destination} property
+        #
+        # @api private
+        # @return [String]
+        def default_destination
+          if is_url?
+            raise ValueError.new("Destination for URL-based archive #{self} must be specified explicitly")
+          else
             ::File.join(::File.dirname(absolute_path), ::File.basename(path).gsub(BASENAME_IGNORE, ''))
           end
         end

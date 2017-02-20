@@ -49,15 +49,34 @@ module PoiseArchive
 
       def unpack_zip
         @zip_entry_paths = []
-        ::Zip::File.open(new_resource.path) do |zip_file|
+        ::Zip::File.open(new_resource.absolute_path) do |zip_file|
           zip_file.each do |entry|
             entry_name = entry.name.split(/\//).drop(new_resource.strip_components).join('/')
             # If strip_components wiped out the name, don't process this entry.
             next if entry_name.empty?
             entry_path = ::File.join(new_resource.destination, entry_name)
+            # Ensure parent directories exist because some ZIP files don't
+            # include those for some reason.
+            ensure_directory(entry_path)
             entry.extract(entry_path)
+            # Make sure we restore file permissions. RubyZip won't do this
+            # unless we also turn on UID/GID restoration, which we don't want.
+            # Mask filters out setuid and setgid bits because no.
+            ::File.chmod(entry.unix_perms & 01777, entry_path) if !node.platform_family?('windows') && entry.unix_perms
             @zip_entry_paths << [entry.directory? ? :directory : entry.file? ? :file : :link, entry_path]
           end
+        end
+      end
+
+      # Make sure all enclosing directories exist before writing a path.
+      #
+      # @param oath [String] Path to check.
+      def ensure_directory(path)
+        base = ::File.dirname(path)
+        unless ::File.exist?(base)
+          ensure_directory(base)
+          Dir.mkdir(base)
+          @zip_entry_paths << [:directory, base]
         end
       end
 

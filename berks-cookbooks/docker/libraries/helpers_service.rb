@@ -31,12 +31,21 @@ module DockerCookbook
         '/usr/bin/docker'
       end
 
+      def dockerd_bin
+        return '/usr/bin/docker' if Gem::Version.new(docker_major_version) < Gem::Version.new('1.12')
+        '/usr/bin/dockerd'
+      end
+
+      def dockerd_bin_link
+        "/usr/bin/dockerd-#{name}"
+      end
+
       def docker_name
         return 'docker' if name == 'default'
         "docker-#{name}"
       end
 
-      def docker_version
+      def installed_docker_version
         o = shell_out("#{docker_bin} --version")
         o.stdout.split[2].chomp(',')
       end
@@ -114,7 +123,7 @@ module DockerCookbook
       end
 
       def docker_major_version
-        ray = docker_version.split('.')
+        ray = installed_docker_version.split('.')
         ray.pop
         ray.push.join('.')
       end
@@ -122,13 +131,15 @@ module DockerCookbook
       def docker_daemon_arg
         if Gem::Version.new(docker_major_version) < Gem::Version.new('1.8')
           '-d'
-        else
+        elsif Gem::Version.new(docker_major_version) < Gem::Version.new('1.12')
           'daemon'
+        else
+          ''
         end
       end
 
       def docker_daemon_cmd
-        [docker_bin, docker_daemon_arg, docker_daemon_opts].join(' ')
+        [dockerd_bin, docker_daemon_arg, docker_daemon_opts].join(' ')
       end
 
       def docker_cmd
@@ -145,6 +156,12 @@ module DockerCookbook
           opts << "--tlscert=#{tls_client_cert}" if tls_client_cert
           opts << "--tlskey=#{tls_client_key}" if tls_client_key
         end
+        opts
+      end
+
+      def systemd_args
+        opts = ''
+        systemd_opts.each { |systemd_opt| opts << "#{systemd_opt}\n" } if systemd_opts
         opts
       end
 
@@ -177,7 +194,7 @@ module DockerCookbook
         opts << "--log-level=#{log_level}" if log_level
         labels.each { |l| opts << "--label=#{l}" } if labels
         opts << "--log-driver=#{log_driver}" if log_driver
-        log_opts.each { |log_opt| opts << "--log-opt=#{log_opt}" } if log_opts
+        log_opts.each { |log_opt| opts << "--log-opt #{log_opt}" } if log_opts
         opts << "--mtu=#{mtu}" if mtu
         opts << "--pidfile=#{pidfile}" if pidfile
         opts << "--registry-mirror=#{registry_mirror}" if registry_mirror
@@ -192,6 +209,7 @@ module DockerCookbook
         opts << "--userland-proxy=#{userland_proxy}" unless userland_proxy.nil?
         opts << "--disable-legacy-registry=#{disable_legacy_registry}" unless disable_legacy_registry.nil?
         opts << "--userns-remap=#{userns_remap}" if userns_remap
+        opts << misc_opts if misc_opts
         opts
       end
 

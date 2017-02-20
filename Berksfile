@@ -1,3 +1,3 @@
 source "https://supermarket.chef.io"
 
-cookbook "nw-docker", path: "./nw-docker"
+cookbook "nichols-works", path: "./nichols-works"

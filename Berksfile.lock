@@ -1,25 +1,23 @@
 DEPENDENCIES
-  nw-docker
-    path: nw-docker
+  nichols-works
+    path: nichols-works
 
 GRAPH
-  apt (4.0.1)
-    compat_resource (>= 12.10)
-  chef-apt-docker (1.0.0)
-    apt (>= 2.9.0)
+  apt (6.0.0)
+  chef-apt-docker (1.1.0)
+    compat_resource (>= 12.16.3)
   cloudcli (1.0.0)
     poise-python (~> 1.2.1)
-  compat_resource (12.10.6)
-  docker (2.9.2)
-    compat_resource (>= 12.9.0)
-  nw-docker (0.1.0)
+  compat_resource (12.16.3)
+  docker (2.15.2)
+  nichols-works (0.2.0)
     apt (>= 0.0.0)
     chef-apt-docker (>= 0.0.0)
     cloudcli (>= 0.0.0)
     docker (>= 0.0.0)
     tar (>= 0.0.0)
-  poise (2.7.1)
-  poise-archive (1.2.0)
+  poise (2.7.2)
+  poise-archive (1.3.0)
     poise (~> 2.6)
   poise-languages (1.4.0)
     poise (~> 2.5)
@@ -27,4 +25,4 @@ GRAPH
   poise-python (1.2.1)
     poise (~> 2.0)
     poise-languages (~> 1.2)
-  tar (0.7.0)
+  tar (2.0.0)

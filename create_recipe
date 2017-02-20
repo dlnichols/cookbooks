@@ -1,0 +1,5 @@
+#!/usr/bin/bash -e
+if (($# != 1)); then
+  exit 1
+fi
+chef generate recipe -C "Daniel Nichols" -m dan@nichols.works -I mit ./nichols-works $1

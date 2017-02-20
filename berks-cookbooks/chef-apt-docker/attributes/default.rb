@@ -1,8 +1,8 @@
 #
-# Cookbook Name:: chef-apt-docker
+# Cookbook:: chef-apt-docker
 # Attributes:: default
 #
-# Copyright 2016, Chef Software, Inc.
+# Copyright:: 2016, Chef Software, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,3 +18,6 @@
 #
 
 default['chef-apt-docker']['components'] = %w(main)
+default['chef-apt-docker']['uri'] = 'https://apt.dockerproject.org/repo'
+default['chef-apt-docker']['keyserver'] = 'p80.pool.sks-keyservers.net'
+default['chef-apt-docker']['key'] = '58118E89F3A912897C070ADBF76221572C52609D'
