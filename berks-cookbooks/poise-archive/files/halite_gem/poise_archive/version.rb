@@ -1,5 +1,5 @@
 #
-# Copyright 2016, Noah Kantrowitz
+# Copyright 2016-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,5 +16,5 @@
 
 
 module PoiseArchive
-  VERSION = '1.3.0'
+  VERSION = '1.5.0'
 end

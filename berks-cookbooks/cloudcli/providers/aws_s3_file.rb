@@ -29,7 +29,7 @@ def whyrun_supported?
 end
 
 def load_current_resource
-  @current_resource = Chef::Resource::CloudcliAwsS3File.new(new_resource.name)
+  @current_resource = ::Chef::Resource.resource_for_node(:cloudcli_aws_s3_file, node).new(new_resource.name)
   @current_resource.bucket(new_resource.bucket)
   @current_resource.key(new_resource.key)
   @current_resource.path(new_resource.path)
@@ -62,10 +62,10 @@ action :get do
 end
 
 def s3_get
-  cmd = node['cloudcli']['aws']['binary'].dup
-  cmd << ' s3 cp '
-  cmd << "s3://#{new_resource.bucket}/#{new_resource.key} "
-  cmd << new_resource.path
+  cmd = node['cloudcli']['aws']['binary'] +
+        ' s3 cp ' \
+        "s3://#{new_resource.bucket}/#{new_resource.key} " +
+        new_resource.path
   s3_cmd(cmd)
 
   return unless access_controls.requires_changes?

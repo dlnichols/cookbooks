@@ -1,5 +1,5 @@
 #
-# Copyright 2016, Noah Kantrowitz
+# Copyright 2016-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 require 'chef/platform/provider_priority_map'
 
 require 'poise_archive/archive_providers/gnu_tar'
+require 'poise_archive/archive_providers/seven_zip'
 require 'poise_archive/archive_providers/tar'
 require 'poise_archive/archive_providers/zip'
 
@@ -28,9 +29,10 @@ module PoiseArchive
   module ArchiveProviders
     # Set up priority maps
     Chef::Platform::ProviderPriorityMap.instance.priority(:poise_archive, [
-      PoiseArchive::ArchiveProviders::GnuTar,
-      PoiseArchive::ArchiveProviders::Tar,
       PoiseArchive::ArchiveProviders::Zip,
+      PoiseArchive::ArchiveProviders::GnuTar,
+      PoiseArchive::ArchiveProviders::SevenZip,
+      PoiseArchive::ArchiveProviders::Tar,
     ])
   end
 end

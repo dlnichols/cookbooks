@@ -2,7 +2,7 @@
 # Cookbook:: apt
 # Recipe:: cacher-client
 #
-# Copyright:: 2011-2016, Chef Software, Inc.
+# Copyright:: 2011-2017, Chef Software, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ if node['apt']['cacher_client']['cacher_server'].empty?
   end
   f.run_action(:delete) if node['apt']['compiletime']
 else
-  execute 'apt-get update' do
+  apt_update 'update for notification' do
     action :nothing
   end
 
@@ -44,7 +44,7 @@ else
       server: node['apt']['cacher_client']['cacher_server']
     )
     action(node['apt']['compiletime'] ? :nothing : :create)
-    notifies :run, 'execute[apt-get update]', :immediately
+    notifies :update, 'apt_update[update for notification]', :immediately
   end
   t.run_action(:create) if node['apt']['compiletime']
 end

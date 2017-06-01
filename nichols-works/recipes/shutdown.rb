@@ -25,7 +25,6 @@
 # THE SOFTWARE.
 LOG_TAG = "::NicholsWorks::Shutdown "
 
-Chef::Log.info LOG_TAG + "Killing Docker Service"
 docker_service :default do
   action :stop
 end

@@ -1,5 +1,33 @@
 # Poise-Python Changelog
 
+## v1.6.0
+
+* Improved handling for Python 3.3.
+* Updated PyPy release lists.
+* Fix file permissions for non-root-owned virtualenvs.
+* Support for Chef 13.
+
+## v1.5.1
+
+* Fix handling of packages with underscores in the name.
+
+## v1.5.0
+
+* Support new SCL structure and packages.
+
+## v1.4.0
+
+* Add system package names for Ubuntu 16.04.
+* Add `options` and `cwd` properties to `pip_requirements` resource.
+* Add `install_options` and `list_options` to `python_package` resource.
+
+## v1.3.0
+
+* Don't re-bootstrap very old pip if that is the configured version.
+* Support for bootstrapping with a specific version of pip.
+* [#40](https://github.com/poise/poise-python/pulls/40) Support for Python 3 system packages on Amazon Linux.
+* Experimental Windows support.
+
 ## v1.2.1
 
 * Compatibility with Pip 8.0.

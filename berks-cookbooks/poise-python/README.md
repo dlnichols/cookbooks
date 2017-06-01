@@ -27,14 +27,44 @@ end
 pip_requirements '/opt/myapp/requirements.txt'
 ```
 
+## Installing a Package From a URI
+
+While using `python_package 'git+https://github.com/example/mypackage.git'` will
+sometimes work, this approach is not recommended. Unfortunately pip's support
+for installing directly from URI sources is limited and cannot support the API
+used for the `python_package` resource. You can run the install either directly
+from the URI or through an intermediary `git` resource:
+
+```ruby
+# Will re-install on every converge unless you add a not_if/only_if.
+python_execute '-m pip install git+https://github.com/example/mypackage.git'
+
+# Will only re-install when the git repository updates.
+python_execute 'install mypackage' do
+  action :nothing
+  command '-m pip install .'
+  cwd '/opt/mypackage'
+end
+git '/opt/mypackage' do
+  repository 'https://github.com/example/mypackage.git'
+  notifies :run, 'python_execute[install mypackage]', :immediately
+end
+```
+
 ## Supported Python Versions
 
 This cookbook can install at least Python 2.7, Python 3, and PyPy on all
 supported platforms (Debian, Ubuntu, RHEL, CentOS, Fedora).
 
+### Windows Support
+
+The latest version of `poise-python` includes basic support for managing Python
+on Windows. This currently doesn't support Python 3.5, but everything should be
+working. Consider this support tested but experimental at this time.
+
 ## Requirements
 
-Chef 12 or newer is required.
+Chef 12.1 or newer is required.
 
 ## Attributes
 
@@ -71,9 +101,11 @@ python_runtime '2'
 
 * `version` – Version of Python to install. If a partial version is given, use the
   latest available version matching that prefix. *(name property)*
+* `get_pip_url` – URL to download the `get-pip.py` bootstrap script from.
+  *(default: https://bootstrap.pypa.io/get-pip.py)*
 * `pip_version` – Version of pip to install. If set to `true`, use the latest.
-  If set to `false`, do not install pip. Can also be set to a URL to a copy of
-  the `get-pip.py` script. *(default: true)*
+  If set to `false`, do not install pip. For backward compatibility, can also be
+  set to a URL instead of `get_pip_url`. *(default: true)*
 * `setuptools_version` – Version of Setuptools to install. If set to `true`, use
   the latest. If set to `false`, do not install Setuptools. *(default: true)*
 * `virtualenv_version` – Version of virtualenv to install. If set to `true`,
@@ -218,6 +250,9 @@ The `:purge` and `:reconfigure` actions are not supported.
 * `user` – System user to install the package.
 * `virtualenv` – Name of the `python_virtualenv` resource to use. This is
   mutually exclusive with the `python` property.
+* `options` – Options to pass to `pip`.
+* `install_options` – Options to pass to `pip install` (and similar commands).
+* `list_options` – Options to pass to `pip list` (and similar commands).
 
 For other properties see the [Chef documentation](https://docs.chef.io/resource_package.html#attributes).
 The `response_file`, `response_file_variables`, and `source` properties are not
@@ -277,7 +312,10 @@ notifications will only be triggered if a package is actually installed.
 
 * `path` – Path to the requirements file, or a folder containing the
   requirements file. *(name property)*
+* `cwd` – Directory to run `pip` from. *(default: directory containing the
+  `requirements.txt`)*
 * `group` – System group to install the packages.
+* `options` – Command line options for use with `pip install`.
 * `python` – Name of the `python_runtime` resource to use. If not specified, the
   most recently declared `python_runtime` will be used. Can also be set to the
   full path to a `python` binary.
@@ -325,7 +363,7 @@ end
 The `scl` provider installs Python using the [Software Collections](https://www.softwarecollections.org/)
 packages. This is only available on RHEL, CentOS, and Fedora. SCL offers more
 recent versions of Python than the system packages for the most part. If an SCL
-package exists for the requests version, it will be used in preference to the
+package exists for the requested version, it will be used in preference to the
 `system` provider.
 
 ```ruby
@@ -397,7 +435,7 @@ The Poise test server infrastructure is sponsored by [Rackspace](https://rackspa
 
 ## License
 
-Copyright 2015, Noah Kantrowitz
+Copyright 2015-2017, Noah Kantrowitz
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

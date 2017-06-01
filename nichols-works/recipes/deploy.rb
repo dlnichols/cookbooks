@@ -23,46 +23,31 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
-LOG_TAG = "::NicholsWorks::Deploy:: "
+LOG_TAG = "::NicholsWorks::Deploy "
 
 instance = search(:aws_opsworks_instance, "self:true").first
 
 search(:aws_opsworks_app, "deploy:true").each do |app|
-  app_key = app[:app_source][:url].sub(/.*?\/nw-deployment\//, "")
-  app_file = app_key.match(/.*\/(.*)/)[1]
-  app_folder = app_file.sub(".tar.gz", "")
-
-  cloud_aws_s3_file "/var/app/#{app_file}" do
-    bucket "nw-deployment"
-    key app_key
-    owner "root"
-    group "root"
-    mode "0644"
-  end
-
-  tar_extract "/var/app/#{app_file}" do
-    target_dir "/var/app/#{app_folder}"
-    creates "/var/app/#{app_folder}/#{node[:nw_name]}.jar"
-  end
-
-  link "/var/app/#{node[:nw_name]}-current" do
-    to "/var/app/#{app_folder}"
+  docker_image "#{app[:environment]['DOCKER_IMAGE']}" do
+    tag app[:environment]['DOCKER_TAG'] || "latest"
+    action :pull
+    not_if { app[:environment]['DOCKER_IMAGE'].nil? }
   end
 
   docker_container "#{app[:shortname]}" do
-    container_name "#{app[:shortname]}"
     kill_after 60
     action :stop
+    not_if { app[:environment]['DOCKER_IMAGE'].nil? }
   end
 
   docker_container "#{app[:shortname]}" do
-    repo "#{node[:nw_app_types][app[:shortname]]}"
-    container_name "#{app[:shortname]}"
-    port "#{node[:nw_ports][app[:shortname]]}"
-    volumes [ "/var/app:/var/app" ]
-    entrypoint [ "java",
-                 "-Djava.security.egd=file:/dev/./urandom",
-                 "-jar",
-                 "/var/app/#{node[:nw_name]}-current/#{node[:nw_name]}.jar" ]
+    repo app[:environment]['DOCKER_IMAGE']
+    tag app[:environment]['DOCKER_TAG'] || "latest"
+    volumes app[:environment]['DOCKER_VOLUMES']&.split(";") || []
+    env app[:environment]&.map { |k, v| "#{k.gsub("___","-")}=#{v}" } || []
+    entrypoint app[:environment]['ENTRYPOINT']
+    timeout 30
+    retries 3
+    not_if { app[:environment]['DOCKER_IMAGE'].nil? }
   end
 end

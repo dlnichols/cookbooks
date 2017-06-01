@@ -1,5 +1,15 @@
 # Poise-Archive Changelog
 
+## v1.5.0
+
+* Support for 7-Zip unpacking archives on drives other than the system root.
+* Chef 13 support.
+
+## v1.4.0
+
+* Added support for using 7-Zip on Windows.
+* Fixed handling of `.tar.xz` archives on RHEL and CentOS.
+
 ## v1.3.0
 
 * Add support for unpacking directly from a URL.

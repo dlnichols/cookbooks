@@ -1,5 +1,5 @@
 #
-# Copyright 2015, Noah Kantrowitz
+# Copyright 2015-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,7 +98,11 @@ module PoisePython
         alias_method :action_delete, :action_uninstall
 
         def python_binary
-          ::File.join(new_resource.path, 'bin', 'python')
+          if node.platform_family?('windows')
+            ::File.join(new_resource.path, 'Scripts', 'python.exe')
+          else
+            ::File.join(new_resource.path, 'bin', 'python')
+          end
         end
 
         def python_environment
@@ -121,7 +125,8 @@ module PoisePython
             end
           else
             converge_by("Creating venv at #{new_resource.path}") do
-              create_virtualenv(%w{venv --without-pip})
+              use_withoutpip = cmd.stdout.include?('--without-pip')
+              create_virtualenv(use_withoutpip ? %w{venv --without-pip} : %w{venv})
             end
           end
         end

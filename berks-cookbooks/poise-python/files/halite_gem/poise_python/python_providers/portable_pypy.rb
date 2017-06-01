@@ -1,5 +1,5 @@
 #
-# Copyright 2015, Noah Kantrowitz
+# Copyright 2015-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ module PoisePython
       provides(:portable_pypy)
       include PoiseLanguages::Static(
         name: 'pypy',
-        versions: %w{4.0.1 2.6.1 2.5.1 2.5 2.4 2.3.1 2.3 2.2.1 2.2 2.1 2.0.2},
+        versions: %w{5.7.1 5.6 5.4.1 5.4 5.3.1 5.1.1 5.1 5.0.1 5.0 4.0.1 2.6.1 2.5.1 2.5 2.4 2.3.1 2.3 2.2.1 2.2 2.1 2.0.2},
         machines: %w{linux-i686 linux-x86_64},
         url: 'https://bitbucket.org/squeaky/portable-pypy/downloads/pypy-%{version}-%{kernel}_%{machine}-portable.tar.bz2'
       )

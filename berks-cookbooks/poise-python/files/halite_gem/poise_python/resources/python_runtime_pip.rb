@@ -1,5 +1,5 @@
 #
-# Copyright 2015, Noah Kantrowitz
+# Copyright 2015-2017, Noah Kantrowitz
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+require 'fileutils'
 require 'tempfile'
 
 require 'chef/resource'
@@ -26,8 +27,8 @@ module PoisePython
     # @since 1.0.0
     # @api private
     module PythonRuntimePip
-      # URL for the default get-pip.py script.
-      DEFAULT_GET_PIP_URL = 'https://bootstrap.pypa.io/get-pip.py'
+      # Earliest version of pip we will try upgrading in-place.
+      PIP_INPLACE_VERSION = Gem::Version.create('7.0.0')
 
       # A `python_runtime_pip` resource to install/upgrade pip itself. This is
       # used internally by `python_runtime` and is not intended to be a public
@@ -47,9 +48,9 @@ module PoisePython
         #   @return [String]
         attribute(:version, kind_of: String)
         # @!attribute get_pip_url
-        #   URL to the get-pip.py script. Defaults to pulling it from pypa.io.
+        #   URL to the get-pip.py script.
         #   @return [String]
-        attribute(:get_pip_url, kind_of: String, default: DEFAULT_GET_PIP_URL)
+        attribute(:get_pip_url, kind_of: String, required: true)
       end
 
       # The default provider for `python_runtime_pip`.
@@ -72,8 +73,12 @@ module PoisePython
         #
         # @return [void]
         def action_install
+          Chef::Log.debug("[#{new_resource}] Installing pip #{new_resource.version || 'latest'}, currently #{current_resource.version || 'not installed'}")
+          if new_resource.version && current_resource.version == new_resource.version
+            Chef::Log.debug("[#{new_resource}] Pip #{current_resource.version} is already at requested version")
+            return # Desired version is installed, even if ancient.
           # If you have older than 7.0.0, we're re-bootstraping because lolno.
-          if current_resource.version && Gem::Version.create(current_resource.version) >= Gem::Version.create('7.0.0')
+          elsif current_resource.version && Gem::Version.create(current_resource.version) >= PIP_INPLACE_VERSION
             install_pip
           else
             bootstrap_pip
@@ -99,31 +104,44 @@ module PoisePython
         # @return [void]
         def bootstrap_pip
           # Always updated if we have hit this point.
-          new_resource.updated_by_last_action(true)
-          # Pending https://github.com/pypa/pip/issues/1087.
-          if new_resource.version
-            Chef::Log.warn("pip does not support bootstrapping a specific version, see https://github.com/pypa/pip/issues/1087.")
-          end
-          # Use a temp file to hold the installer.
-          Tempfile.create(['get-pip', '.py']) do |temp|
-            # Download the get-pip.py.
-            get_pip = Chef::HTTP.new(new_resource.get_pip_url).get('')
-            # Write it to the temp file.
-            temp.write(get_pip)
-            # Close the file to flush it.
-            temp.close
-            # Run the install. This probably needs some handling for proxies et
-            # al. Disable setuptools and wheel as we will install those later.
-            # Use the environment vars instead of CLI arguments so I don't have
-            # to deal with bootstrap versions that don't support --no-wheel.
-            poise_shell_out!([new_resource.parent.python_binary, temp.path], environment: new_resource.parent.python_environment.merge('PIP_NO_SETUPTOOLS' => '1', 'PIP_NO_WHEEL' => '1'))
-          end
-          new_pip_version = pip_version
-          if new_resource.version && new_pip_version != new_resource.version
-            # We probably want to downgrade, which is silly but ¯\_(ツ)_/¯.
-            # Can be removed once https://github.com/pypa/pip/issues/1087 is fixed.
-            current_resource.version(new_pip_version)
-            install_pip
+          converge_by("Bootstrapping pip #{new_resource.version || 'latest'} from #{new_resource.get_pip_url}") do
+            # Use a temp file to hold the installer.
+            # Put `Tempfile.create` back when Chef on Windows has a newer Ruby.
+            # Tempfile.create(['get-pip', '.py']) do |temp|
+            temp = Tempfile.new(['get-pip', '.py'])
+            begin
+              # Download the get-pip.py.
+              get_pip = Chef::HTTP.new(new_resource.get_pip_url).get('')
+              # Write it to the temp file.
+              temp.write(get_pip)
+              # Close the file to flush it.
+              temp.close
+              # Run the install. This probably needs some handling for proxies et
+              # al. Disable setuptools and wheel as we will install those later.
+              # Use the environment vars instead of CLI arguments so I don't have
+              # to deal with bootstrap versions that don't support --no-wheel.
+              boostrap_cmd = [new_resource.parent.python_binary, temp.path, '--upgrade', '--force-reinstall']
+              boostrap_cmd << "pip==#{new_resource.version}" if new_resource.version
+              Chef::Log.debug("[#{new_resource}] Running pip bootstrap command: #{boostrap_cmd.join(' ')}")
+              # Gross is_a? hacks but because python_runtime is a container, it
+              # gets the full DSL and this has user and group methods from that.
+              user = new_resource.parent.is_a?(PoisePython::Resources::PythonVirtualenv::Resource) ? new_resource.parent.user : nil
+              group = new_resource.parent.is_a?(PoisePython::Resources::PythonVirtualenv::Resource) ? new_resource.parent.group : nil
+              FileUtils.chown(user, group, temp.path) if user || group
+              poise_shell_out!(boostrap_cmd, environment: new_resource.parent.python_environment.merge('PIP_NO_SETUPTOOLS' => '1', 'PIP_NO_WHEEL' => '1'), group: group, user: user)
+            ensure
+              temp.close unless temp.closed?
+              temp.unlink
+            end
+            new_pip_version = pip_version
+            if new_resource.version && new_pip_version != new_resource.version
+              # We probably want to downgrade, which is silly but ¯\_(ツ)_/¯.
+              # Can be removed once https://github.com/pypa/pip/issues/1087 is fixed.
+              # That issue is fixed, leaving a bit longer for older vendored scripts.
+              Chef::Log.debug("[#{new_resource}] Pip bootstrap installed #{new_pip_version}, trying to install again for #{new_resource.version}")
+              current_resource.version(new_pip_version)
+              install_pip
+            end
           end
         end
 
@@ -140,6 +158,7 @@ module PoisePython
             return if current_resource.version
           end
 
+          Chef::Log.debug("[#{new_resource}] Installing pip #{new_resource.version} via itself")
           notifying_block do
             # Use pip to upgrade (or downgrade) itself.
             python_package 'pip' do
@@ -155,7 +174,9 @@ module PoisePython
         #
         # @return [String, nil]
         def pip_version
-          cmd = poise_shell_out([new_resource.parent.python_binary, '-m', 'pip.__main__', '--version'], environment: new_resource.parent.python_environment)
+          version_cmd = [new_resource.parent.python_binary, '-m', 'pip.__main__', '--version']
+          Chef::Log.debug("[#{new_resource}] Running pip version command: #{version_cmd.join(' ')}")
+          cmd = poise_shell_out(version_cmd, environment: new_resource.parent.python_environment)
           if cmd.error?
             # Not installed, probably.
             nil

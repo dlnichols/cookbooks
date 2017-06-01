@@ -9,7 +9,5 @@ version "0.2.0"
 depends "apt"
 depends "chef-apt-docker"
 depends "docker"
-depends "cloudcli"
-depends "tar"
 
 supports "ubuntu"
