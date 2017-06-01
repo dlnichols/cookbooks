@@ -25,6 +25,8 @@
 # THE SOFTWARE.
 LOG_TAG = "::NicholsWorks::Deploy "
 
+include_recipe "nichols-works::clean"
+
 instance = search(:aws_opsworks_instance, "self:true").first
 
 search(:aws_opsworks_app, "deploy:true").each do |app|
