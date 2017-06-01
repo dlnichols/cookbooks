@@ -27,14 +27,33 @@ LOG_TAG = "::NicholsWorks::Install "
 
 include_recipe "chef-apt-docker"
 
+node[:nichols_works][:paths].each { |key, dir|
+  directory dir do
+    owner "root"
+    group "root"
+    mode "0755"
+    recursive true
+    action :create
+  end
+}
+
 docker_installation_package "default" do
-  version "1.13.1"
+  version node[:nichols_works][:docker][:version]
   package_options %q|--force-yes -o Dpkg::Options::='--force-confold' -o Dpkg::Options::='--force-all'|
   action :create
 end
 
 docker_service_manager "default" do
   action :start
-  timeout 15
   retries 3
 end
+
+docker_network node[:nichols_works][:network][:name] do
+  subnet node[:nichols_works][:network][:subnet]
+  gateway node[:nichols_works][:network][:gateway]
+  action :create
+end
+
+include_recipe "nichols-works::routing"
+
+include_recipe "nichols-works::get_ssl_certificates"

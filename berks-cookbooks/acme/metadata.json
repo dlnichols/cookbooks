@@ -1,0 +1,57 @@
+{
+  "name": "acme",
+  "description": "ACME client cookbook for free and trusted SSL/TLS certificates from Let's Encrypt",
+  "long_description": "ACME cookbook\n=============\n\n[![Build Status](https://travis-ci.org/schubergphilis/chef-acme.svg)](https://travis-ci.org/schubergphilis/chef-acme)\n[![Cookbook Version](https://img.shields.io/cookbook/v/acme.svg)](https://supermarket.chef.io/cookbooks/acme)\n\nAutomatically get/renew free and trusted certificates from Let's Encrypt (letsencrypt.org).\nACME is the Automated Certificate Management Environment protocol used by Let's Encrypt.\n\nAttributes\n----------\n### default\n* `node['acme']['contact']` - Contact information, default empty. Set to `mailto:your@email.com`.\n* `node['acme']['endpoint']` - ACME server endpoint, default `https://acme-v01.api.letsencrypt.org`. Set to `https://acme-staging.api.letsencrypt.org` if you want to use the Let's Encrypt staging environment and corresponding certificates.\n* `node['acme']['renew']` - Days before the certificate expires at which the certificate will be renewed, default `30`.\n* `node['acme']['source_ips']` - IP addresses used by Let's Encrypt to verify the TLS certificates, it will change over time. This attribute is for firewall purposes. Allow these IPs for HTTP (tcp/80).\n* `node['acme']['private_key']` - Private key content of registered account.\n* `node['acme']['key_size']` - Default private key size used when resource property is not. Must be one out of: 2048, 3072, 4096. Defaults to 2048.\n\nRecipes\n-------\n### default\nInstalls the required acme-client rubygem.\n\nUsage\n-----\nUse the `acme_certificate` provider to request a certificate. The webserver for the domain for which you are requesting a certificate must be running on the local server. Currently only the http validation method is supported. Provide the path to your `wwwroot` for the specified domain.\n\n```ruby\nacme_certificate 'test.example.com' do\n  crt               '/etc/ssl/test.example.com.crt'\n  chain             '/etc/ssl/test.example.com-chain.crt'\n  key               '/etc/ssl/test.example.com.key'\n  wwwroot           '/var/www'\nend\n```\n\nIn case your webserver needs an already existing certificate when installing a new server you will have a bootstrap problem. Webserver cannot start without certificate, but the certificate cannot be requested without the running webserver. To overcome this a self-signed certificate can be generated with the `acme_selfsigned` provider.\n\n```ruby\nacme_selfsigned 'test.example.com' do\n  crt     '/etc/ssl/test.example.com.crt'\n  chain   '/etc/ssl/test.example.com-chain.crt'\n  key     '/etc/ssl/test.example.com.key'\nend\n```\n\nA working example can be found in the included `acme_client` test cookbook.\n\nProviders\n---------\n### certificate\n| Property            | Type    | Default  | Description                                            |\n|  ---                |  ---    |  ---     |  ---                                                   |\n| `cn`                | string  | _name_   | The common name for the certificate                    |\n| `alt_names`         | array   | []       | The common name for the certificate                    |\n| `crt`               | string  | nil      | File path to place the certificate                     |\n| `key`               | string  | nil      | File path to place the private key                     |\n| `key_size`          | integer | 2048     | Private key size. Must be one out of: 2048, 3072, 4096 |\n| `chain`             | string  | nil      | File path to place the certificate chain               |\n| `fullchain`         | string  | nil      | File path to place the certificate including the chain |\n| `owner`             | string  | root     | Owner of the created files                             |\n| `group`             | string  | root     | Group of the created files                             |\n| `wwwroot`           | string  | /var/www | Path to the wwwroot of the domain                      |\n| `ignore_failure`    | boolean | false    | Whether to continue chef run if issuance fails         |\n| `retries`           | integer | 0        | Number of times to catch exceptions and retry          |\n| `retry_delay`       | integer | 2        | Number of seconds to wait between retries              |\n\n### selfsigned\n| Property         | Type    | Default  | Description                                            |\n|  ---             |  ---    |  ---     |  ---                                                   |\n| `cn`             | string  | _name_   | The common name for the certificate                    |\n| `crt`            | string  | nil      | File path to place the certificate                     |\n| `key`            | string  | nil      | File path to place the private key                     |\n| `key_size`       | integer | 2048     | Private key size. Must be one out of: 2048, 3072, 4096 |\n| `chain`          | string  | nil      | File path to place the certificate chain               |\n| `owner`          | string  | root     | Owner of the created files                             |\n| `group`          | string  | root     | Group of the created files                             |\n\nExample\n-------\nTo generate a certificate for an apache2 website you can use code like this:\n\n```ruby\n# Include the recipe to install the gems\ninclude_recipe 'acme'\n\n# Set up contact information. Note the mailto: notation\nnode.set['acme']['contact'] = ['mailto:me@example.com']\n# Real certificates please...\nnode.set['acme']['endpoint'] = 'https://acme-v01.api.letsencrypt.org'\n\nsite = \"example.com\"\nsans = [\"www.#{site}\"]\n\n# Generate a self-signed if we don't have a cert to prevent bootstrap problems\nacme_selfsigned \"#{site}\" do\n  crt     \"/etc/httpd/ssl/#{site}.crt\"\n  key     \"/etc/httpd/ssl/#{site}.key\"\n  chain    \"/etc/httpd/ssl/#{site}.pem\"\n  owner   \"apache\"\n  group   \"apache\"\n  notifies :restart, \"service[apache2]\", :immediate\nend\n\n# Set up your webserver here...\n\n# Get and auto-renew the certificate from Let's Encrypt\nacme_certificate \"#{site}\" do\n  crt               \"/etc/httpd/ssl/#{site}.crt\"\n  key               \"/etc/httpd/ssl/#{site}.key\"\n  chain             \"/etc/httpd/ssl/#{site}.pem\"\n  wwwroot           \"/var/www/#{site}/htdocs/\"\n  notifies :restart, \"service[apache2]\"\n  alt_names sans\nend\n```\n\nTesting\n-------\nThe kitchen includes a `boulder` server to run the integration tests with, so testing can run locally without interaction with the online API's.\n\nContributing\n------------\n1. Fork the repository on Github\n2. Create a named feature branch (like `add_component_x`)\n3. Write your change\n4. Write tests for your change (if applicable)\n5. Run the tests, ensuring they all pass\n6. Submit a Pull Request using Github\n\nLicense and Authors\n-------------------\nAuthors: Thijs Houtenbos <thoutenbos@schubergphilis.com>\n\nCredits\n-------\nLet’s Encrypt is a trademark of the Internet Security Research Group. All rights reserved.\n",
+  "maintainer": "Thijs Houtenbos",
+  "maintainer_email": "thoutenbos@schubergphilis.com",
+  "license": "Apache-2.0",
+  "platforms": {
+    "centos": ">= 0.0.0",
+    "debian": ">= 0.0.0",
+    "fedora": ">= 0.0.0",
+    "redhat": ">= 0.0.0",
+    "ubuntu": ">= 0.0.0"
+  },
+  "dependencies": {
+    "compat_resource": ">= 12.19"
+  },
+  "recommendations": {
+
+  },
+  "suggestions": {
+
+  },
+  "conflicting": {
+
+  },
+  "providing": {
+
+  },
+  "replacing": {
+
+  },
+  "attributes": {
+
+  },
+  "groupings": {
+
+  },
+  "recipes": {
+
+  },
+  "version": "3.0.0",
+  "source_url": "https://github.com/schubergphilis/chef-acme",
+  "issues_url": "https://github.com/schubergphilis/chef-acme/issues",
+  "privacy": false,
+  "chef_versions": [
+    [
+      ">= 12.1"
+    ]
+  ],
+  "ohai_versions": [
+
+  ],
+  "gems": [
+
+  ]
+}

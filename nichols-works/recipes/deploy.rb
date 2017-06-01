@@ -25,8 +25,6 @@
 # THE SOFTWARE.
 LOG_TAG = "::NicholsWorks::Deploy "
 
-include_recipe "nichols-works::clean"
-
 instance = search(:aws_opsworks_instance, "self:true").first
 
 search(:aws_opsworks_app, "deploy:true").each do |app|
@@ -37,19 +35,37 @@ search(:aws_opsworks_app, "deploy:true").each do |app|
   end
 
   docker_container "#{app[:shortname]}" do
-    kill_after 60
-    action :stop
+    repo app[:environment]['DOCKER_IMAGE']
+    tag app[:environment]['DOCKER_TAG'] || "latest"
+    host_name app[:domains]&.first&.split(".")&.first
+    network_mode node[:nichols_works][:network][:name]
+    network_aliases app[:domains].map { |domain| domain.split(".").first }
+    port app[:environment]['DOCKER_PORTS']&.split || []
+    volumes app[:environment]['DOCKER_VOLUMES']&.split || []
+    env app[:environment]&.map { |k, v| "#{k.gsub("___","-")}=#{v}" } || []
+    entrypoint app[:environment]['ENTRYPOINT']
+    log_driver "awslogs"
+    log_opts [ "awslogs-region=#{node[:nichols_works][:zone]}",
+               "awslogs-group=#{node[:nichols_works][:log_group]}",
+               "awslogs-stream=#{instance[:hostname]}/#{app[:shortname]}" ]
+    timeout 30
+    retries 3
+    action :run
     not_if { app[:environment]['DOCKER_IMAGE'].nil? }
   end
 
-  docker_container "#{app[:shortname]}" do
-    repo app[:environment]['DOCKER_IMAGE']
-    tag app[:environment]['DOCKER_TAG'] || "latest"
-    volumes app[:environment]['DOCKER_VOLUMES']&.split(";") || []
-    env app[:environment]&.map { |k, v| "#{k.gsub("___","-")}=#{v}" } || []
-    entrypoint app[:environment]['ENTRYPOINT']
-    timeout 30
-    retries 3
-    not_if { app[:environment]['DOCKER_IMAGE'].nil? }
+  route53_record "#{app[:shortname]}.public.dns.horizon" do
+    name "#{app[:domains].first}"
+    value "#{instance[:hostname]}.#{node[:nichols_works][:routing][:host]}"
+    type "CNAME"
+    zone_id node[:nichols_works][:routing][:zone]
+    overwrite true
+    fail_on_error true
+    action :create
+    only_if { app[:domains]&.first && instance[:public_ip] && !instance[:public_ip].empty? }
   end
 end
+
+include_recipe "nichols-works::get_ssl_certificates"
+
+include_recipe "nichols-works::clean"

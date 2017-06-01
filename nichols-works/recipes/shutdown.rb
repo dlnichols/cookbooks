@@ -25,6 +25,27 @@
 # THE SOFTWARE.
 LOG_TAG = "::NicholsWorks::Shutdown "
 
+search(:aws_opsworks_app).each do |app|
+  docker_container "#{app[:shortname]}" do
+    kill_after 60
+    action :stop
+    not_if { app[:environment]['DOCKER_IMAGE'].nil? }
+  end
+
+  route53_record "#{app[:shortname]}.public.dns.horizon" do
+    name "#{app[:domains].first}"
+    value "#{instance[:hostname]}.#{node[:nichols_works][:routing][:host]}"
+    type "CNAME"
+    zone_id node[:nichols_works][:routing][:zone]
+    overwrite true
+    fail_on_error true
+    action :delete
+    only_if { app[:domains]&.first && instance[:public_ip] && !instance[:public_ip].empty? }
+  end
+end
+
 docker_service :default do
   action :stop
 end
+
+include_recipe "nichols-works::remove_routing"

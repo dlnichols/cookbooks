@@ -9,5 +9,8 @@ version "0.2.0"
 depends "apt"
 depends "chef-apt-docker"
 depends "docker"
+depends "aws"
+depends "route53"
+depends "acme"
 
 supports "ubuntu"

@@ -3,10 +3,18 @@ DEPENDENCIES
     path: nichols-works
 
 GRAPH
+  acme (3.0.0)
+    compat_resource (>= 12.19)
   apt (6.1.0)
+  aws (6.1.0)
   chef-apt-docker (1.1.1)
+  compat_resource (12.19.0)
   docker (2.15.6)
   nichols-works (0.2.0)
+    acme (>= 0.0.0)
     apt (>= 0.0.0)
+    aws (>= 0.0.0)
     chef-apt-docker (>= 0.0.0)
     docker (>= 0.0.0)
+    route53 (>= 0.0.0)
+  route53 (1.2.1)
