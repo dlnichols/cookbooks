@@ -25,6 +25,8 @@
 # THE SOFTWARE.
 LOG_TAG = "::NicholsWorks::Proxy "
 
+include_recipe "nichols-works::get_ssl_certificates"
+
 instance = search(:aws_opsworks_instance, "self:true").first
 
 apps = search(:aws_opsworks_app).select { |app| !!app[:domains]&.first }
