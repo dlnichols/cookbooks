@@ -26,3 +26,7 @@
 LOG_TAG = "::NicholsWorks::Setup "
 
 include_recipe "nichols-works::install"
+
+include_recipe "nichols-works::routing"
+
+include_recipe "nichols-works::proxy"

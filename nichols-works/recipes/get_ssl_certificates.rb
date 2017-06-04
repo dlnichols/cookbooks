@@ -54,7 +54,8 @@ search(:aws_opsworks_app, "deploy:true").each do |app|
     key       "#{node[:nichols_works][:paths][:certs]}/#{app[:shortname]}.key"
     fullchain "#{node[:nichols_works][:paths][:certs]}/#{app[:shortname]}.pem"
     wwwroot   node[:nichols_works][:paths][:static_root]
-    only_if { !!app[:domains]&.first }
+    only_if   { !!app[:domains]&.first }
+    notifies  :restart, 'docker_container[nginx-proxy]', :delayed
   end
 end
 

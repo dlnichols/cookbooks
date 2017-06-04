@@ -53,7 +53,3 @@ docker_network node[:nichols_works][:network][:name] do
   gateway node[:nichols_works][:network][:gateway]
   action :create
 end
-
-include_recipe "nichols-works::routing"
-
-include_recipe "nichols-works::get_ssl_certificates"
