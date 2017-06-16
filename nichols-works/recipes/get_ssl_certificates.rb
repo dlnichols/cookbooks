@@ -26,7 +26,8 @@
 LOG_TAG = "::NicholsWorks::GetSSLCertificates "
 
 instance = search(:aws_opsworks_instance, "self:true").first
-apps = search(:aws_opsworks_app, "deploy:true")
+apps = search(:aws_opsworks_app, "deploy:true").select { |app| !(app[:domains].select { |domain| domain != app[:shortname] }.empty?) }
+Chef::Log.info LOG_TAG + "(#{apps.to_s})"
 
 docker_image :nginx do
   tag node[:nichols_works][:nginx][:version]
@@ -44,13 +45,12 @@ docker_container "nginx-static" do
              "awslogs-stream=#{instance[:hostname]}/nginx-static" ]
   volumes [ "#{node[:nichols_works][:paths][:static_root]}:/usr/share/nginx/html:ro" ]
   action :run
-  only_if { ::File.exists? "/var/www" && !apps.empty? }
+  only_if { ::File.exists?("/var/www") && !apps.empty? }
 end
 
 include_recipe "acme"
 
 apps.each do |app|
-  domains = app[:domains].select { |a| a != app[:shortname] }
   acme_certificate domains.first do
     owner     "root"
     group     "root"
@@ -58,7 +58,6 @@ apps.each do |app|
     fullchain "#{node[:nichols_works][:paths][:certs]}/#{app[:shortname]}.pem"
     wwwroot   node[:nichols_works][:paths][:static_root]
     notifies  :restart, 'docker_container[nginx-proxy]', :delayed
-    only_if   { !domains.first.nil? }
   end
 end
 
