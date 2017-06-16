@@ -67,6 +67,6 @@ search(:aws_opsworks_app, "deploy:true").each do |app|
   end
 end
 
-#include_recipe "nichols-works::get_ssl_certificates"
+include_recipe "nichols-works::get_ssl_certificates"
 
 include_recipe "nichols-works::clean"
