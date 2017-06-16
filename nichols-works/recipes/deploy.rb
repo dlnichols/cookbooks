@@ -54,18 +54,19 @@ search(:aws_opsworks_app, "deploy:true").each do |app|
     not_if { app[:environment]['DOCKER_IMAGE'].nil? }
   end
 
+  domains = app[:domains].select { |a| a != app[:shortname] }
   route53_record "#{app[:shortname]}.public.dns.horizon" do
-    name "#{app[:domains].first}"
+    name "#{domains.first}"
     value "#{instance[:hostname]}.#{node[:nichols_works][:routing][:host]}"
     type "CNAME"
     zone_id node[:nichols_works][:routing][:zone]
     overwrite true
     fail_on_error true
     action :create
-    only_if { app[:domains]&.first && instance[:public_ip] && !instance[:public_ip].empty? }
+    only_if { !domains.empty? && instance[:public_ip] && !instance[:public_ip].empty? }
   end
 end
 
-include_recipe "nichols-works::get_ssl_certificates"
+#include_recipe "nichols-works::get_ssl_certificates"
 
 include_recipe "nichols-works::clean"
