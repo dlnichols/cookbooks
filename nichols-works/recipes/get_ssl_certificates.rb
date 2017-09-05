@@ -51,7 +51,7 @@ end
 include_recipe "acme"
 
 apps.each do |app|
-  acme_certificate domains.first do
+  acme_certificate app[:domains].first do
     owner     "root"
     group     "root"
     key       "#{node[:nichols_works][:paths][:certs]}/#{app[:shortname]}.key"
