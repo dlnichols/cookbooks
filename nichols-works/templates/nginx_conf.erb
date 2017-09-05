@@ -23,25 +23,28 @@ http {
   keepalive_timeout 65;
 
   <% apps.each do |app| %>
-  server {
-    listen 443 ssl;
-    server_name <%= app[:domains]&.first %>;
+    <% if app[:domains].length > 1 then %>
+    # <%= app[:domains] %>
+    server {
+      listen 443 ssl;
+      server_name <%= app[:domains]&.first %>;
 
-    ssl on;
-    ssl_certificate /etc/nginx/certs/<%= app[:shortname] %>.pem;
-    ssl_certificate_key /etc/nginx/certs/<%= app[:shortname] %>.key;
+      ssl on;
+      ssl_certificate /etc/nginx/certs/<%= app[:shortname] %>.pem;
+      ssl_certificate_key /etc/nginx/certs/<%= app[:shortname] %>.key;
 
-    client_max_body_size 0;
-    chunked_transfer_encoding on;
+      client_max_body_size 0;
+      chunked_transfer_encoding on;
 
-    location / {
-      proxy_pass         http://<%= app[:domains]&.first %>;
-      proxy_set_header   Host              $host;
-      proxy_set_header   X-Real-IP         $remote_addr;
-      proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-      proxy_set_header   X-Forwarded-Proto $scheme;
-      proxy_read_timeout 60;
+      location / {
+        proxy_pass         http://<%= app[:domains]&.first %>;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60;
+      }
     }
-  }
+    <% end %>
   <% end %>
 }

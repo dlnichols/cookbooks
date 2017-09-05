@@ -58,6 +58,7 @@ apps.each do |app|
     fullchain "#{node[:nichols_works][:paths][:certs]}/#{app[:shortname]}.pem"
     wwwroot   node[:nichols_works][:paths][:static_root]
     notifies  :restart, 'docker_container[nginx-proxy]', :delayed
+    only_if    { !app[:domains].empty? }
   end
 end
 
